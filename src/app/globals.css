@@ -35,3 +35,9 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
 }
+
+/* Recharts makes charts focusable; keep the ring for keyboard users, not mouse clicks. */
+.recharts-wrapper:focus:not(:focus-visible),
+.recharts-surface:focus:not(:focus-visible) {
+  outline: none;
+}

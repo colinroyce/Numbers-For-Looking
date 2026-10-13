@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { CACHE_HEADERS, getDataset } from "@/lib/nflverse";
+import { getDatasetFor } from "@/lib/nflverse";
 import type { StatsResponse } from "@/lib/types";
 import { dataUnavailable } from "@/lib/api-errors";
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: `ids must list 1–${MAX_PLAYERS} player ids` }, { status: 400 });
   }
   try {
-    const { data } = await getDataset();
+    const { data, headers } = await getDatasetFor(request);
     const players: StatsResponse["players"] = [];
     for (const id of ids) {
       const player = data.players.find((p) => p.id === id);
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       });
     }
     const body: StatsResponse = { latestWeek: data.latestWeek, players };
-    return Response.json(body, { headers: CACHE_HEADERS });
+    return Response.json(body, { headers });
   } catch (err) {
     return dataUnavailable(err);
   }

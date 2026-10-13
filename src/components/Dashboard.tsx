@@ -1,10 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { RotateCcw, X } from "lucide-react";
+import Image from "next/image";
+import { RefreshCw, RotateCcw, Users, X } from "lucide-react";
 import { PLAYER_COLORS } from "@/lib/colors";
 import { METRICS_BY_POSITION, defaultMetricKeys } from "@/lib/metrics";
-import type { MetaResponse, PlayerSummary, PlayersResponse, Position, StatsResponse } from "@/lib/types";
+import type {
+  FieldPlayer,
+  FieldResponse,
+  MetaResponse,
+  PlayerSummary,
+  PlayersResponse,
+  Position,
+  RefreshResponse,
+  StatsResponse,
+} from "@/lib/types";
 import type { ComparedPlayer } from "@/lib/weeks";
 import ComparisonTable from "./ComparisonTable";
 import MetricSelector from "./MetricSelector";
@@ -14,8 +24,8 @@ import TrendCharts from "./TrendCharts";
 
 const MAX_PLAYERS = 3;
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
   const body = await res.json();
   if (!res.ok) throw new Error(body?.error ?? `Request failed (${res.status})`);
   return body as T;
@@ -30,12 +40,55 @@ export default function Dashboard() {
   const [pending, setPending] = useState(0);
   const [metricKeys, setMetricKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showField, setShowField] = useState(false);
+  const [field, setField] = useState<FieldPlayer[] | null>(null);
+  const fieldCache = useRef(new Map<Position, FieldPlayer[]>());
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshNote, setRefreshNote] = useState<string | null>(null);
+  // Data version from /api/meta, sent with every data request so caches can't mix versions.
+  const versionRef = useRef<string | null>(null);
   // Guards against a slow response landing after the user switched position.
   const positionRef = useRef<Position | null>(null);
 
   useEffect(() => {
-    getJson<MetaResponse>("/api/meta").then(setMeta, (e: Error) => setError(e.message));
+    getJson<MetaResponse>("/api/meta").then((m) => {
+      versionRef.current = m.version;
+      setMeta(m);
+    }, (e: Error) => setError(e.message));
   }, []);
+
+  // Hide the refresh message after a few seconds.
+  useEffect(() => {
+    if (!refreshNote) return;
+    const timer = setTimeout(() => setRefreshNote(null), 8000);
+    return () => clearTimeout(timer);
+  }, [refreshNote]);
+
+  function api(path: string) {
+    const v = versionRef.current;
+    return v ? `${path}${path.includes("?") ? "&" : "?"}v=${v}` : path;
+  }
+
+  function loadField(pos: Position) {
+    const cached = fieldCache.current.get(pos);
+    if (cached) {
+      setField(cached);
+      return;
+    }
+    setField(null);
+    getJson<FieldResponse>(api(`/api/field?position=${pos}`))
+      .then(({ players }) => {
+        fieldCache.current.set(pos, players);
+        if (positionRef.current === pos) setField(players);
+      })
+      .catch((e: Error) => setError(e.message));
+  }
+
+  function toggleField() {
+    const next = !showField;
+    setShowField(next);
+    if (next && position) loadField(position);
+  }
 
   function choosePosition(next: Position) {
     if (next === position) return;
@@ -44,19 +97,63 @@ export default function Dashboard() {
     setSelected([]);
     setMetricKeys(defaultMetricKeys(next));
     setRoster([]);
-    setRosterLoading(true);
     setError(null);
-    getJson<PlayersResponse>(`/api/players?position=${next}`)
-      .then((r) => positionRef.current === next && setRoster(r.players))
+    if (showField) loadField(next);
+    loadRoster(next);
+  }
+
+  function loadRoster(pos: Position) {
+    setRosterLoading(true);
+    getJson<PlayersResponse>(api(`/api/players?position=${pos}`))
+      .then((r) => positionRef.current === pos && setRoster(r.players))
       .catch((e: Error) => setError(e.message))
-      .finally(() => positionRef.current === next && setRosterLoading(false));
+      .finally(() => positionRef.current === pos && setRosterLoading(false));
+  }
+
+  async function refreshStats() {
+    setRefreshing(true);
+    setRefreshNote(null);
+    setError(null);
+    try {
+      const result = await getJson<RefreshResponse>("/api/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version: meta?.version, latestWeek: meta?.latestWeek }),
+      });
+      versionRef.current = result.meta.version;
+      setMeta(result.meta);
+      setRefreshNote(result.message);
+      if (result.status === "unchanged") return;
+
+      // New numbers: reload what's on screen, keeping the current picks and their colors.
+      fieldCache.current.clear();
+      const pos = positionRef.current;
+      if (!pos) return;
+      loadRoster(pos);
+      if (showField) loadField(pos);
+      const ids = selected.map((p) => p.id);
+      if (ids.length > 0) {
+        const { players } = await getJson<StatsResponse>(api(`/api/stats?ids=${ids.map(encodeURIComponent).join(",")}`));
+        if (positionRef.current !== pos) return;
+        setSelected((cur) =>
+          cur.map((p) => {
+            const fresh = players.find((f) => f.id === p.id);
+            return fresh ? { ...fresh, slot: p.slot } : p;
+          }),
+        );
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   function addPlayer(player: PlayerSummary) {
     const forPosition = position;
     setPending((n) => n + 1);
     setError(null);
-    getJson<StatsResponse>(`/api/stats?ids=${encodeURIComponent(player.id)}`)
+    getJson<StatsResponse>(api(`/api/stats?ids=${encodeURIComponent(player.id)}`))
       .then(({ players }) => {
         const stats = players[0];
         if (!stats || positionRef.current !== forPosition) return;
@@ -72,8 +169,15 @@ export default function Dashboard() {
       .finally(() => setPending((n) => n - 1));
   }
 
+  // Clicking a gray "All Players" line adds that player, same as picking them from the list.
+  function addPlayerById(id: string) {
+    const player = roster.find((p) => p.id === id);
+    if (player) addPlayer(player);
+  }
+
   function clearAll() {
     setSelected([]);
+    setShowField(false);
     if (position) setMetricKeys(defaultMetricKeys(position));
   }
 
@@ -82,15 +186,34 @@ export default function Dashboard() {
   const latestWeek = meta?.latestWeek ?? 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:py-10">
+    <div className="flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:py-10">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Numbers For Looking</h1>
-          <p className="mt-1 text-sm text-ink-2">See the trends. Compare the stats. Trust your eyes.</p>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Image src="/logo.png" alt="" width={110} height={160} priority className="h-14 w-auto sm:h-[72px]" />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Numbers For Looking</h1>
+            <p className="mt-1 text-sm text-ink-2">See the trends. Compare the stats. Trust your eyes.</p>
+          </div>
         </div>
-        <p className="text-xs text-muted">
-          {meta ? `${meta.season} regular season · through Week ${meta.latestWeek}` : "Loading season data…"}
-        </p>
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted">
+              {meta ? `${meta.season} regular season · through Week ${meta.latestWeek}` : "Loading season data…"}
+            </p>
+            <button
+              type="button"
+              onClick={refreshStats}
+              disabled={refreshing || !meta}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink-2 hover:bg-surface-2 hover:text-ink disabled:pointer-events-none disabled:opacity-50"
+            >
+              <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
+              {refreshing ? "Checking…" : "Check for new stats"}
+            </button>
+          </div>
+          <p role="status" className="min-h-4 text-right text-xs text-ink-2">
+            {refreshNote}
+          </p>
+        </div>
       </header>
 
       <section aria-label="Controls" className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4">
@@ -106,8 +229,22 @@ export default function Dashboard() {
           />
           <button
             type="button"
+            onClick={toggleField}
+            disabled={!position}
+            aria-pressed={showField}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors disabled:pointer-events-none disabled:opacity-40 ${
+              showField
+                ? "border-ink-2/60 bg-surface-2 text-ink"
+                : "border-line text-ink-2 hover:bg-surface-2 hover:text-ink"
+            }`}
+          >
+            <Users className="size-4" aria-hidden />
+            All Players
+          </button>
+          <button
+            type="button"
             onClick={clearAll}
-            disabled={selected.length === 0}
+            disabled={selected.length === 0 && !showField}
             className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink disabled:pointer-events-none disabled:opacity-40"
           >
             <RotateCcw className="size-4" aria-hidden />
@@ -155,14 +292,28 @@ export default function Dashboard() {
         </p>
       )}
 
-      {selected.length === 0 ? (
+      {selected.length === 0 && !showField ? (
         <EmptyState hasPosition={!!position} />
       ) : checkedMetrics.length === 0 ? (
         <EmptyState message="Check at least one stat to chart." />
+      ) : selected.length === 0 && !field ? (
+        <EmptyState message={`Loading all ${position}s…`} />
       ) : (
         <>
-          <TrendCharts metrics={checkedMetrics} players={selected} latestWeek={latestWeek} />
-          <ComparisonTable metrics={checkedMetrics} players={selected} latestWeek={latestWeek} />
+          <TrendCharts
+            metrics={checkedMetrics}
+            players={selected}
+            field={showField ? field : null}
+            fieldLabel={`All ${position}s (${field?.length ?? "…"})`}
+            latestWeek={latestWeek}
+            canAdd={selected.length + pending < MAX_PLAYERS}
+            onAddPlayer={addPlayerById}
+          />
+          {selected.length > 0 ? (
+            <ComparisonTable metrics={checkedMetrics} players={selected} latestWeek={latestWeek} />
+          ) : (
+            <EmptyState message="Add players to highlight them on the charts and compare them week by week." />
+          )}
         </>
       )}
 

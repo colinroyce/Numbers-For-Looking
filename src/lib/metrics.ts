@@ -47,15 +47,16 @@ const M = {
     format: pct,
   },
   airYds: { key: "airYds", label: "Air Yards", short: "Air Yds", value: field("receiving_air_yards"), format: int },
+  yac: { key: "yac", label: "Yards After Catch", short: "YAC", value: field("receiving_yards_after_catch"), format: int },
 } satisfies Record<string, Metric>;
 
 const checked = (m: Metric): Metric => ({ ...m, defaultChecked: true });
 
-const RECEIVER: Metric[] = [checked(M.recYds), checked(M.targets), checked(M.receptions), M.recTd, M.tgtShare, M.airYds];
+const RECEIVER: Metric[] = [checked(M.recYds), checked(M.targets), checked(M.receptions), M.recTd, M.tgtShare, M.airYds, M.yac];
 
 export const METRICS_BY_POSITION: Record<Position, Metric[]> = {
   QB: [checked(M.passYds), checked(M.passTd), checked(M.int), M.compPct, M.attempts, M.rushYds],
-  RB: [checked(M.rushYds), checked(M.carries), M.rushTd, M.targets, M.receptions, checked(M.recYds)],
+  RB: [checked(M.rushYds), checked(M.carries), M.rushTd, M.targets, M.receptions, checked(M.recYds), M.yac],
   WR: RECEIVER,
   TE: RECEIVER,
 };
