@@ -1,8 +1,11 @@
+import { connection } from "next/server";
 import { META_CACHE_HEADERS, getDataset } from "@/lib/nflverse";
 import type { MetaResponse } from "@/lib/types";
 import { dataUnavailable } from "@/lib/api-errors";
 
 export async function GET() {
+  // Always answer per request; never try to pre-render this at build time.
+  await connection();
   try {
     const { data, stale } = await getDataset();
     const body: MetaResponse = {

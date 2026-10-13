@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { RefreshCw, RotateCcw, Users, X } from "lucide-react";
 import { PLAYER_COLORS } from "@/lib/colors";
 import { METRICS_BY_POSITION, defaultMetricKeys } from "@/lib/metrics";
@@ -187,9 +188,12 @@ export default function Dashboard() {
   return (
     <div className="flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:py-10">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Numbers For Looking</h1>
-          <p className="mt-1 text-sm text-ink-2">See the trends. Compare the stats. Trust your eyes.</p>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Image src="/logo.png" alt="" width={110} height={160} priority className="h-14 w-auto sm:h-[72px]" />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Numbers For Looking</h1>
+            <p className="mt-1 text-sm text-ink-2">See the trends. Compare the stats. Trust your eyes.</p>
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex items-center gap-3">
