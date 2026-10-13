@@ -122,7 +122,7 @@ export default function Dashboard() {
   const latestWeek = meta?.latestWeek ?? 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:py-10">
+    <div className="flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:py-10">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Numbers For Looking</h1>
