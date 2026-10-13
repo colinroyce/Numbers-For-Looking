@@ -20,6 +20,7 @@ export const STAT_FIELDS = [
   "receiving_yards",
   "receiving_tds",
   "receiving_air_yards",
+  "receiving_yards_after_catch",
   "target_share",
 ] as const;
 export type StatField = (typeof STAT_FIELDS)[number];
