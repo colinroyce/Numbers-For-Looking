@@ -61,3 +61,7 @@ export type StatsResponse = {
   latestWeek: number;
   players: (PlayerSummary & { weeks: WeeklyStat[]; teamWeeks: number[] })[];
 };
+
+export type FieldPlayer = Pick<PlayerSummary, "id" | "name" | "team"> & { weeks: WeeklyStat[] };
+
+export type FieldResponse = { players: FieldPlayer[] };

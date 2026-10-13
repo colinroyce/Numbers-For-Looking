@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { RotateCcw, X } from "lucide-react";
+import { RotateCcw, Users, X } from "lucide-react";
 import { PLAYER_COLORS } from "@/lib/colors";
 import { METRICS_BY_POSITION, defaultMetricKeys } from "@/lib/metrics";
-import type { MetaResponse, PlayerSummary, PlayersResponse, Position, StatsResponse } from "@/lib/types";
+import type {
+  FieldPlayer,
+  FieldResponse,
+  MetaResponse,
+  PlayerSummary,
+  PlayersResponse,
+  Position,
+  StatsResponse,
+} from "@/lib/types";
 import type { ComparedPlayer } from "@/lib/weeks";
 import ComparisonTable from "./ComparisonTable";
 import MetricSelector from "./MetricSelector";
@@ -30,12 +38,36 @@ export default function Dashboard() {
   const [pending, setPending] = useState(0);
   const [metricKeys, setMetricKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showField, setShowField] = useState(false);
+  const [field, setField] = useState<FieldPlayer[] | null>(null);
+  const fieldCache = useRef(new Map<Position, FieldPlayer[]>());
   // Guards against a slow response landing after the user switched position.
   const positionRef = useRef<Position | null>(null);
 
   useEffect(() => {
     getJson<MetaResponse>("/api/meta").then(setMeta, (e: Error) => setError(e.message));
   }, []);
+
+  function loadField(pos: Position) {
+    const cached = fieldCache.current.get(pos);
+    if (cached) {
+      setField(cached);
+      return;
+    }
+    setField(null);
+    getJson<FieldResponse>(`/api/field?position=${pos}`)
+      .then(({ players }) => {
+        fieldCache.current.set(pos, players);
+        if (positionRef.current === pos) setField(players);
+      })
+      .catch((e: Error) => setError(e.message));
+  }
+
+  function toggleField() {
+    const next = !showField;
+    setShowField(next);
+    if (next && position) loadField(position);
+  }
 
   function choosePosition(next: Position) {
     if (next === position) return;
@@ -46,6 +78,7 @@ export default function Dashboard() {
     setRoster([]);
     setRosterLoading(true);
     setError(null);
+    if (showField) loadField(next);
     getJson<PlayersResponse>(`/api/players?position=${next}`)
       .then((r) => positionRef.current === next && setRoster(r.players))
       .catch((e: Error) => setError(e.message))
@@ -72,8 +105,15 @@ export default function Dashboard() {
       .finally(() => setPending((n) => n - 1));
   }
 
+  // Clicking a gray "All Players" line adds that player, same as picking them from the list.
+  function addPlayerById(id: string) {
+    const player = roster.find((p) => p.id === id);
+    if (player) addPlayer(player);
+  }
+
   function clearAll() {
     setSelected([]);
+    setShowField(false);
     if (position) setMetricKeys(defaultMetricKeys(position));
   }
 
@@ -106,8 +146,22 @@ export default function Dashboard() {
           />
           <button
             type="button"
+            onClick={toggleField}
+            disabled={!position}
+            aria-pressed={showField}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors disabled:pointer-events-none disabled:opacity-40 ${
+              showField
+                ? "border-ink-2/60 bg-surface-2 text-ink"
+                : "border-line text-ink-2 hover:bg-surface-2 hover:text-ink"
+            }`}
+          >
+            <Users className="size-4" aria-hidden />
+            All Players
+          </button>
+          <button
+            type="button"
             onClick={clearAll}
-            disabled={selected.length === 0}
+            disabled={selected.length === 0 && !showField}
             className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink disabled:pointer-events-none disabled:opacity-40"
           >
             <RotateCcw className="size-4" aria-hidden />
@@ -155,14 +209,28 @@ export default function Dashboard() {
         </p>
       )}
 
-      {selected.length === 0 ? (
+      {selected.length === 0 && !showField ? (
         <EmptyState hasPosition={!!position} />
       ) : checkedMetrics.length === 0 ? (
         <EmptyState message="Check at least one stat to chart." />
+      ) : selected.length === 0 && !field ? (
+        <EmptyState message={`Loading all ${position}s…`} />
       ) : (
         <>
-          <TrendCharts metrics={checkedMetrics} players={selected} latestWeek={latestWeek} />
-          <ComparisonTable metrics={checkedMetrics} players={selected} latestWeek={latestWeek} />
+          <TrendCharts
+            metrics={checkedMetrics}
+            players={selected}
+            field={showField ? field : null}
+            fieldLabel={`All ${position}s (${field?.length ?? "…"})`}
+            latestWeek={latestWeek}
+            canAdd={selected.length + pending < MAX_PLAYERS}
+            onAddPlayer={addPlayerById}
+          />
+          {selected.length > 0 ? (
+            <ComparisonTable metrics={checkedMetrics} players={selected} latestWeek={latestWeek} />
+          ) : (
+            <EmptyState message="Add players to highlight them on the charts and compare them week by week." />
+          )}
         </>
       )}
 

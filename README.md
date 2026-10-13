@@ -8,6 +8,7 @@ Numbers For Looking (NFL) is a simple, visual-first tool for comparing 2026 NFL 
 - Add up to 3 players
 - Check the stats you care about
 - Read the week-by-week trend charts and the comparison table
+- Turn on **All Players** to see every player at the position as faint gray lines behind your picks (hover one to see who it is)
 
 ## Run it locally
 
@@ -56,6 +57,7 @@ src/
     api/meta/route.ts     # season + latest week
     api/players/route.ts  # player list for a position
     api/stats/route.ts    # weekly stats for up to 3 players
+    api/field/route.ts    # weekly stats for every player at a position (All Players)
   lib/
     nflverse.ts           # fetch, parse, and cache the nflverse CSV
     metrics.ts            # which stats each position shows, and how they're formatted
