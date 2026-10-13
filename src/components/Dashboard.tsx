@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { RotateCcw, Users, X } from "lucide-react";
+import { RefreshCw, RotateCcw, Users, X } from "lucide-react";
 import { PLAYER_COLORS } from "@/lib/colors";
 import { METRICS_BY_POSITION, defaultMetricKeys } from "@/lib/metrics";
 import type {
@@ -11,6 +11,7 @@ import type {
   PlayerSummary,
   PlayersResponse,
   Position,
+  RefreshResponse,
   StatsResponse,
 } from "@/lib/types";
 import type { ComparedPlayer } from "@/lib/weeks";
@@ -22,8 +23,8 @@ import TrendCharts from "./TrendCharts";
 
 const MAX_PLAYERS = 3;
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
   const body = await res.json();
   if (!res.ok) throw new Error(body?.error ?? `Request failed (${res.status})`);
   return body as T;
@@ -41,12 +42,31 @@ export default function Dashboard() {
   const [showField, setShowField] = useState(false);
   const [field, setField] = useState<FieldPlayer[] | null>(null);
   const fieldCache = useRef(new Map<Position, FieldPlayer[]>());
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshNote, setRefreshNote] = useState<string | null>(null);
+  // Data version from /api/meta, sent with every data request so caches can't mix versions.
+  const versionRef = useRef<string | null>(null);
   // Guards against a slow response landing after the user switched position.
   const positionRef = useRef<Position | null>(null);
 
   useEffect(() => {
-    getJson<MetaResponse>("/api/meta").then(setMeta, (e: Error) => setError(e.message));
+    getJson<MetaResponse>("/api/meta").then((m) => {
+      versionRef.current = m.version;
+      setMeta(m);
+    }, (e: Error) => setError(e.message));
   }, []);
+
+  // Hide the refresh message after a few seconds.
+  useEffect(() => {
+    if (!refreshNote) return;
+    const timer = setTimeout(() => setRefreshNote(null), 8000);
+    return () => clearTimeout(timer);
+  }, [refreshNote]);
+
+  function api(path: string) {
+    const v = versionRef.current;
+    return v ? `${path}${path.includes("?") ? "&" : "?"}v=${v}` : path;
+  }
 
   function loadField(pos: Position) {
     const cached = fieldCache.current.get(pos);
@@ -55,7 +75,7 @@ export default function Dashboard() {
       return;
     }
     setField(null);
-    getJson<FieldResponse>(`/api/field?position=${pos}`)
+    getJson<FieldResponse>(api(`/api/field?position=${pos}`))
       .then(({ players }) => {
         fieldCache.current.set(pos, players);
         if (positionRef.current === pos) setField(players);
@@ -76,20 +96,63 @@ export default function Dashboard() {
     setSelected([]);
     setMetricKeys(defaultMetricKeys(next));
     setRoster([]);
-    setRosterLoading(true);
     setError(null);
     if (showField) loadField(next);
-    getJson<PlayersResponse>(`/api/players?position=${next}`)
-      .then((r) => positionRef.current === next && setRoster(r.players))
+    loadRoster(next);
+  }
+
+  function loadRoster(pos: Position) {
+    setRosterLoading(true);
+    getJson<PlayersResponse>(api(`/api/players?position=${pos}`))
+      .then((r) => positionRef.current === pos && setRoster(r.players))
       .catch((e: Error) => setError(e.message))
-      .finally(() => positionRef.current === next && setRosterLoading(false));
+      .finally(() => positionRef.current === pos && setRosterLoading(false));
+  }
+
+  async function refreshStats() {
+    setRefreshing(true);
+    setRefreshNote(null);
+    setError(null);
+    try {
+      const result = await getJson<RefreshResponse>("/api/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version: meta?.version, latestWeek: meta?.latestWeek }),
+      });
+      versionRef.current = result.meta.version;
+      setMeta(result.meta);
+      setRefreshNote(result.message);
+      if (result.status === "unchanged") return;
+
+      // New numbers: reload what's on screen, keeping the current picks and their colors.
+      fieldCache.current.clear();
+      const pos = positionRef.current;
+      if (!pos) return;
+      loadRoster(pos);
+      if (showField) loadField(pos);
+      const ids = selected.map((p) => p.id);
+      if (ids.length > 0) {
+        const { players } = await getJson<StatsResponse>(api(`/api/stats?ids=${ids.map(encodeURIComponent).join(",")}`));
+        if (positionRef.current !== pos) return;
+        setSelected((cur) =>
+          cur.map((p) => {
+            const fresh = players.find((f) => f.id === p.id);
+            return fresh ? { ...fresh, slot: p.slot } : p;
+          }),
+        );
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   function addPlayer(player: PlayerSummary) {
     const forPosition = position;
     setPending((n) => n + 1);
     setError(null);
-    getJson<StatsResponse>(`/api/stats?ids=${encodeURIComponent(player.id)}`)
+    getJson<StatsResponse>(api(`/api/stats?ids=${encodeURIComponent(player.id)}`))
       .then(({ players }) => {
         const stats = players[0];
         if (!stats || positionRef.current !== forPosition) return;
@@ -128,9 +191,25 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Numbers For Looking</h1>
           <p className="mt-1 text-sm text-ink-2">See the trends. Compare the stats. Trust your eyes.</p>
         </div>
-        <p className="text-xs text-muted">
-          {meta ? `${meta.season} regular season · through Week ${meta.latestWeek}` : "Loading season data…"}
-        </p>
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted">
+              {meta ? `${meta.season} regular season · through Week ${meta.latestWeek}` : "Loading season data…"}
+            </p>
+            <button
+              type="button"
+              onClick={refreshStats}
+              disabled={refreshing || !meta}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink-2 hover:bg-surface-2 hover:text-ink disabled:pointer-events-none disabled:opacity-50"
+            >
+              <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
+              {refreshing ? "Checking…" : "Check for new stats"}
+            </button>
+          </div>
+          <p role="status" className="min-h-4 text-right text-xs text-ink-2">
+            {refreshNote}
+          </p>
+        </div>
       </header>
 
       <section aria-label="Controls" className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4">

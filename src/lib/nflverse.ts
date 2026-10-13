@@ -1,4 +1,6 @@
 import "server-only";
+import type { NextRequest } from "next/server";
+import { createHash } from "node:crypto";
 import Papa from "papaparse";
 import {
   STAT_FIELDS,
@@ -13,11 +15,14 @@ export const SOURCE_URL = `https://github.com/nflverse/nflverse-data/releases/do
 
 /** nflverse refreshes this file a few times a day during the season. */
 const TTL_MS = 6 * 60 * 60 * 1000;
+/** Manual refreshes re-download at most this often, however many people click. */
+const REFRESH_COOLDOWN_MS = 3 * 60 * 1000;
 
 type CsvRow = Record<string, string | undefined>;
 
 let cached: { data: Dataset; expiresAt: number } | null = null;
 let inFlight: Promise<Dataset> | null = null;
+let lastFetchStartedAt = 0;
 
 function num(value: string | undefined): number | null {
   if (value === undefined || value === "" || value === "NA") return null;
@@ -85,12 +90,25 @@ async function fetchDataset(): Promise<Dataset> {
     season: SEASON,
     latestWeek,
     fetchedAt: new Date().toISOString(),
+    version: createHash("sha1").update(text).digest("hex").slice(0, 12),
     players,
     stats,
     teamWeeks: Object.fromEntries(
       Object.entries(teamWeeks).map(([t, weeks]) => [t, [...weeks].sort((a, b) => a - b)]),
     ),
   };
+}
+
+async function load(): Promise<Dataset> {
+  if (!inFlight) {
+    lastFetchStartedAt = Date.now();
+    inFlight = fetchDataset().finally(() => {
+      inFlight = null;
+    });
+  }
+  const data = await inFlight;
+  cached = { data, expiresAt: Date.now() + TTL_MS };
+  return data;
 }
 
 /**
@@ -100,14 +118,8 @@ async function fetchDataset(): Promise<Dataset> {
  */
 export async function getDataset(): Promise<{ data: Dataset; stale: boolean }> {
   if (cached && Date.now() < cached.expiresAt) return { data: cached.data, stale: false };
-
-  inFlight ??= fetchDataset().finally(() => {
-    inFlight = null;
-  });
   try {
-    const data = await inFlight;
-    cached = { data, expiresAt: Date.now() + TTL_MS };
-    return { data, stale: false };
+    return { data: await load(), stale: false };
   } catch (err) {
     if (cached) {
       // Back off for a few minutes rather than retrying on every request.
@@ -119,7 +131,43 @@ export async function getDataset(): Promise<{ data: Dataset; stale: boolean }> {
   }
 }
 
+/**
+ * Re-downloads now, ignoring the TTL (but not the cooldown).
+ *
+ * Note: each API route (and, on Vercel, each serverless instance) can hold its own copy
+ * of this module's cache, so callers compare against the version the *client* has,
+ * never against another route's cache.
+ */
+export async function refreshDataset(): Promise<Dataset> {
+  if (cached && Date.now() - lastFetchStartedAt < REFRESH_COOLDOWN_MS) return cached.data;
+  return load();
+}
+
+/**
+ * For data routes. The client sends the version it expects (`?v=`); if this server
+ * instance holds a different copy, it refreshes once. Responses only get CDN caching
+ * when the data matches the requested version, so a CDN can never file old numbers
+ * under a new version's URL.
+ */
+export async function getDatasetFor(request: NextRequest) {
+  const wanted = request.nextUrl.searchParams.get("v");
+  let result = await getDataset();
+  if (wanted && wanted !== result.data.version) {
+    await refreshDataset().catch((err) => console.error("nflverse refresh failed:", err));
+    result = await getDataset();
+  }
+  const headers = !wanted || wanted === result.data.version ? CACHE_HEADERS : NO_STORE_HEADERS;
+  return { ...result, headers };
+}
+
 /** Cache-Control for API responses: lets a CDN (e.g. Vercel) share results between instances. */
 export const CACHE_HEADERS = {
   "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=21600",
+};
+
+export const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
+/** /api/meta tells clients the current version, so it must not be cached for long. */
+export const META_CACHE_HEADERS = {
+  "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
 };

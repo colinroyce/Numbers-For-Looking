@@ -34,6 +34,7 @@ https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_p
 - nflverse updates the file during the season, usually within a day of games finishing. The footer shows which week the data runs through.
 - The server downloads the file at most once every 6 hours, keeps only regular-season QB/RB/WR/TE rows, and caches the parsed result in memory. API responses also send CDN cache headers.
 - If a refresh fails, the app keeps serving the last good copy and says so in the footer. It never falls back to made-up data.
+- **Check for new stats** (top right) re-downloads right away instead of waiting for the 6-hour refresh. It reports whether a new week arrived, numbers were updated, or nothing changed. It also uses the nflverse schedule to say when the next week kicks off, or that games have been played and stats are pending. Repeat clicks within 3 minutes reuse the last download.
 
 ### Reading the charts
 
@@ -58,11 +59,13 @@ src/
     api/players/route.ts  # player list for a position
     api/stats/route.ts    # weekly stats for up to 3 players
     api/field/route.ts    # weekly stats for every player at a position (All Players)
+    api/refresh/route.ts  # re-check nflverse now (Check for new stats)
   lib/
     nflverse.ts           # fetch, parse, and cache the nflverse CSV
     metrics.ts            # which stats each position shows, and how they're formatted
     colors.ts             # the 3 player colors
     weeks.ts              # game / bye / did-not-play logic per week
+    schedule.ts           # nflverse schedule, for the refresh message
   components/             # Dashboard, PositionSelector, PlayerSearch, MetricSelector, TrendCharts, ComparisonTable
 ```
 

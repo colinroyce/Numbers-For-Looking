@@ -45,13 +45,15 @@ export type Dataset = {
   season: number;
   latestWeek: number;
   fetchedAt: string;
+  /** Short fingerprint of the source file; changes whenever nflverse publishes new numbers. */
+  version: string;
   players: PlayerSummary[];
   stats: Record<string, WeeklyStat[]>;
   /** Weeks in which each team has at least one stat row, i.e. played a game. */
   teamWeeks: Record<string, number[]>;
 };
 
-export type MetaResponse = Pick<Dataset, "season" | "latestWeek" | "fetchedAt"> & {
+export type MetaResponse = Pick<Dataset, "season" | "latestWeek" | "fetchedAt" | "version"> & {
   stale: boolean;
 };
 
@@ -65,3 +67,10 @@ export type StatsResponse = {
 export type FieldPlayer = Pick<PlayerSummary, "id" | "name" | "team"> & { weeks: WeeklyStat[] };
 
 export type FieldResponse = { players: FieldPlayer[] };
+
+export type RefreshResponse = {
+  /** new-week: a later week arrived · updated: same week, numbers changed · unchanged: nothing new */
+  status: "new-week" | "updated" | "unchanged";
+  message: string;
+  meta: MetaResponse;
+};
