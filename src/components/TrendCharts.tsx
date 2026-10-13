@@ -4,6 +4,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { PLAYER_COLORS } from "@/lib/colors";
 import type { Metric } from "@/lib/metrics";
 import { weekCell, weekRange, type ComparedPlayer } from "@/lib/weeks";
+import { Headshot, TeamLogo } from "./PlayerBadge";
 
 type Props = {
   metrics: Metric[];
@@ -18,13 +19,15 @@ export default function TrendCharts({ metrics, players, latestWeek }: Props) {
 
   return (
     <section aria-label="Week-over-week trends" className="space-y-4">
-      <ul className="flex flex-wrap gap-x-5 gap-y-2" aria-label="Legend">
+      <ul className="flex flex-wrap gap-x-6 gap-y-2" aria-label="Legend">
         {players.map((p) => (
           <li key={p.id} className="flex items-center gap-2 text-sm text-ink-2">
             <svg width="18" height="8" aria-hidden>
               <line x1="0" y1="4" x2="18" y2="4" stroke={PLAYER_COLORS[p.slot]} strokeWidth="2" strokeLinecap="round" />
             </svg>
-            {p.name}
+            <Headshot name={p.name} url={p.headshot} size={28} />
+            <span className="text-ink">{p.name}</span>
+            <TeamLogo team={p.team} size={20} />
           </li>
         ))}
       </ul>

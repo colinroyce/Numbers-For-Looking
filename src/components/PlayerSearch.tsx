@@ -2,7 +2,9 @@
 
 import { useId, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
+import { groupByDivision } from "@/lib/teams";
 import type { PlayerSummary } from "@/lib/types";
+import { Headshot, TeamLogo } from "./PlayerBadge";
 
 type Props = {
   players: PlayerSummary[];
@@ -20,13 +22,17 @@ export default function PlayerSearch({ players, selectedIds, maxReached, loading
   const listId = useId();
   const listRef = useRef<HTMLUListElement>(null);
 
-  const matches = useMemo(() => {
+  // Grouped by division (NESW order); `matches` is the same order flattened, for keyboard nav.
+  const { groups, matches } = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return players.filter(
-      (p) =>
-        !selectedIds.includes(p.id) &&
-        (!q || p.name.toLowerCase().includes(q) || p.team.toLowerCase() === q),
+    const groups = groupByDivision(
+      players.filter(
+        (p) =>
+          !selectedIds.includes(p.id) &&
+          (!q || p.name.toLowerCase().includes(q) || p.team.toLowerCase() === q),
+      ),
     );
+    return { groups, matches: groups.flatMap((g) => g.players) };
   }, [players, selectedIds, query]);
 
   const inactive = disabled || maxReached || loading;
@@ -49,7 +55,7 @@ export default function PlayerSearch({ players, selectedIds, maxReached, loading
     if (!matches.length) return;
     const next = (active + delta + matches.length) % matches.length;
     setActive(next);
-    listRef.current?.children[next]?.scrollIntoView({ block: "nearest" });
+    document.getElementById(`${listId}-${matches[next].id}`)?.scrollIntoView({ block: "nearest" });
   }
 
   return (
@@ -96,31 +102,54 @@ export default function PlayerSearch({ players, selectedIds, maxReached, loading
           id={listId}
           ref={listRef}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-line bg-surface-2 py-1 shadow-xl shadow-black/40"
+          aria-label="Players"
+          className="absolute z-20 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-line bg-surface-2 pb-1 shadow-xl shadow-black/40"
         >
           {matches.length === 0 && <li className="px-3 py-2 text-sm text-muted">No players match “{query}”</li>}
-          {matches.map((p, i) => (
-            <li
-              key={p.id}
-              id={`${listId}-${p.id}`}
-              role="option"
-              aria-selected={i === active}
-              // mousedown (not click) so the input's blur doesn't close the list first
-              onMouseDown={(e) => {
-                e.preventDefault();
-                choose(p);
-              }}
-              onMouseEnter={() => setActive(i)}
-              className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-sm ${
-                i === active ? "bg-white/10 text-ink" : "text-ink-2"
-              }`}
-            >
-              <span>{p.name}</span>
-              <span className="tabular-nums text-xs text-muted">
-                {p.team} · {p.games} {p.games === 1 ? "game" : "games"}
-              </span>
-            </li>
-          ))}
+          {groups.map((group) => {
+            const headerId = `${listId}-${group.division.replace(/\s+/g, "-")}`;
+            return (
+              <li key={group.division} role="group" aria-labelledby={headerId}>
+                {/* Sticky within its own group, so the next division's header pushes it out. */}
+                <div
+                  id={headerId}
+                  role="presentation"
+                  className="sticky top-0 z-10 border-b border-line bg-surface-2/95 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted backdrop-blur"
+                >
+                  {group.division}
+                </div>
+                <ul role="presentation">
+                  {group.players.map((p) => {
+                    const i = matches.indexOf(p);
+                    return (
+                      <li
+                        key={p.id}
+                        id={`${listId}-${p.id}`}
+                        role="option"
+                        aria-selected={i === active}
+                        // mousedown (not click) so the input's blur doesn't close the list first
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          choose(p);
+                        }}
+                        onMouseEnter={() => setActive(i)}
+                        className={`flex scroll-mt-8 cursor-pointer items-center gap-2.5 px-3 py-1.5 text-sm ${
+                          i === active ? "bg-white/10 text-ink" : "text-ink-2"
+                        }`}
+                      >
+                        <TeamLogo team={p.team} size={18} />
+                        <Headshot name={p.name} url={p.headshot} size={26} />
+                        <span className="flex-1 truncate">{p.name}</span>
+                        <span className="shrink-0 tabular-nums text-xs text-muted">
+                          {p.team} · {p.games} {p.games === 1 ? "game" : "games"}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
