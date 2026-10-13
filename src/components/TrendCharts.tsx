@@ -84,7 +84,8 @@ export default function TrendCharts({ metrics, players, field, fieldLabel, lates
         )}
       </ul>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* A single chart takes the full width; two or more sit side by side on wide screens. */}
+      <div className={`grid grid-cols-1 gap-4 ${metrics.length > 1 ? "lg:grid-cols-2" : ""}`}>
         {metrics.map((metric) => (
           <MetricChart
             key={metric.key}
