@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
+import { MAX_PLAYERS } from "@/lib/colors";
 import { groupByDivision } from "@/lib/teams";
 import type { PlayerSummary } from "@/lib/types";
 import { Headshot, TeamLogo } from "./PlayerBadge";
@@ -41,7 +42,7 @@ export default function PlayerSearch({ players, selectedIds, maxReached, loading
     : loading
       ? "Loading players…"
       : maxReached
-        ? "3 players selected — remove one to swap"
+        ? `${MAX_PLAYERS} players selected — remove one to swap`
         : `Search or browse ${players.length} players`;
 
   function choose(player: PlayerSummary) {

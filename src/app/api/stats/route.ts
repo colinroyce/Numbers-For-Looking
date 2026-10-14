@@ -1,9 +1,8 @@
 import type { NextRequest } from "next/server";
+import { MAX_PLAYERS } from "@/lib/colors";
 import { getDatasetFor } from "@/lib/nflverse";
 import type { StatsResponse } from "@/lib/types";
 import { dataUnavailable } from "@/lib/api-errors";
-
-const MAX_PLAYERS = 3;
 
 export async function GET(request: NextRequest) {
   const ids = (request.nextUrl.searchParams.get("ids") ?? "")

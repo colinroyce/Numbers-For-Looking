@@ -15,7 +15,7 @@ type Props = {
   field: FieldPlayer[] | null;
   fieldLabel: string;
   latestWeek: number;
-  /** Whether another pick fits (max 3); clicking a gray line adds that player. */
+  /** Whether another pick fits (see MAX_PLAYERS); clicking a gray line adds that player. */
   canAdd: boolean;
   onAddPlayer: (id: string) => void;
 };

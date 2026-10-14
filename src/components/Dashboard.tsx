@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { RefreshCw, RotateCcw, Users, X } from "lucide-react";
-import { PLAYER_COLORS } from "@/lib/colors";
+import { MAX_PLAYERS, PLAYER_COLORS } from "@/lib/colors";
 import { METRICS_BY_POSITION, defaultMetricKeys } from "@/lib/metrics";
 import type {
   FieldPlayer,
@@ -21,8 +21,6 @@ import MetricSelector from "./MetricSelector";
 import PlayerSearch from "./PlayerSearch";
 import PositionSelector from "./PositionSelector";
 import TrendCharts from "./TrendCharts";
-
-const MAX_PLAYERS = 3;
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -332,8 +330,8 @@ function EmptyState({ hasPosition, message }: { hasPosition?: boolean; message?:
     <div className="flex min-h-64 items-center justify-center rounded-xl border border-dashed border-line px-6 text-center text-sm text-muted">
       {message ??
         (hasPosition
-          ? "Search or browse the list to add up to 3 players."
-          : "Pick a position, then add up to 3 players to compare.")}
+          ? `Search or browse the list to add up to ${MAX_PLAYERS} players.`
+          : `Pick a position, then add up to ${MAX_PLAYERS} players to compare.`)}
     </div>
   );
 }
