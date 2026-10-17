@@ -61,7 +61,12 @@ export type PlayersResponse = { players: PlayerSummary[] };
 
 export type StatsResponse = {
   latestWeek: number;
-  players: (PlayerSummary & { weeks: WeeklyStat[]; teamWeeks: number[] })[];
+  players: (PlayerSummary & {
+    weeks: WeeklyStat[];
+    teamWeeks: number[];
+    /** Weeks where the team's game hasn't been played (or posted) yet: not a bye. */
+    upcomingWeeks: number[];
+  })[];
 };
 
 export type FieldPlayer = Pick<PlayerSummary, "id" | "name" | "team"> & { weeks: WeeklyStat[] };
@@ -74,3 +79,14 @@ export type RefreshResponse = {
   message: string;
   meta: MetaResponse;
 };
+
+/** A player's season on one team, for team view, with usage for sorting and filtering. */
+export type TeamPlayer = PlayerSummary & {
+  weeks: WeeklyStat[];
+  teamWeeks: number[];
+  upcomingWeeks: number[];
+  /** Targets + carries + pass attempts on the season. */
+  touches: number;
+};
+
+export type TeamResponse = { team: string; players: TeamPlayer[] };

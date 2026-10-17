@@ -1,5 +1,8 @@
 import type { PlayerSummary } from "./types";
 
+/** Team view shows "main contributors" by default: at least this many touches on the season. */
+export const CONTRIBUTOR_MIN_TOUCHES = 5;
+
 /** "Never Eat Soggy Waffles": AFC North → East → South → West, then the NFC in the same order. */
 export const DIVISIONS = [
   "AFC North",

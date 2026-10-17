@@ -1,5 +1,4 @@
 import { Fragment } from "react";
-import { PLAYER_COLORS } from "@/lib/colors";
 import type { Metric } from "@/lib/metrics";
 import { weekCell, weekRange, type ComparedPlayer } from "@/lib/weeks";
 
@@ -29,7 +28,7 @@ export default function ComparisonTable({ metrics, players, latestWeek }: Props)
                   className="border-l border-line px-3 pt-2 text-left font-semibold text-ink"
                 >
                   <span className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="inline-block h-0.5 w-4 rounded" style={{ background: PLAYER_COLORS[p.slot] }} />
+                    <span className="inline-block h-0.5 w-4 rounded" style={{ background: p.color }} />
                     {p.name}
                     <span className="font-normal text-muted">{p.team}</span>
                   </span>
@@ -62,7 +61,7 @@ export default function ComparisonTable({ metrics, players, latestWeek }: Props)
                   if (cell.kind !== "game") {
                     return (
                       <td key={p.id} colSpan={metrics.length + 1} className="border-l border-line px-3 py-2 text-muted">
-                        {cell.kind === "bye" ? "BYE" : "—  did not play"}
+                        {cell.kind === "bye" ? "BYE" : cell.kind === "upcoming" ? "—  not played yet" : "—  did not play"}
                       </td>
                     );
                   }

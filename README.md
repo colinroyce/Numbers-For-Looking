@@ -9,6 +9,7 @@ Numbers For Looking (NFL) is a simple, visual-first tool for comparing 2026 NFL 
 - Check the stats you care about
 - Read the week-by-week trend charts and the comparison table
 - Turn on **All Players** to see every player at the position as faint gray lines behind your picks (hover one to see who it is)
+- Switch to **Team** to compare every player at a position on one team (busiest players first; hover a name or line to focus on one player)
 
 ## Run it locally
 
@@ -39,7 +40,7 @@ https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_p
 ### Reading the charts
 
 - One chart per stat, each with its own scale. Each player keeps the same color everywhere.
-- A **gap** in a line means the player had no stats that week. The table labels it **BYE** (the team didn't play) or **did not play** (the team played, but the player has no stat line, e.g. injured or inactive).
+- A **gap** in a line means the player had no stats that week. The table labels it **BYE** (the team had no game), **not played yet** (the team's game that week hasn't happened or been posted), or **did not play** (the team played, but the player has no stat line, e.g. injured or inactive).
 
 ## Deploy to Vercel (shareable link)
 
@@ -59,6 +60,7 @@ src/
     api/players/route.ts  # player list for a position
     api/stats/route.ts    # weekly stats for up to 4 players
     api/field/route.ts    # weekly stats for every player at a position (All Players)
+    api/team/route.ts     # every player at a position on one team (Team view)
     api/refresh/route.ts  # re-check nflverse now (Check for new stats)
   lib/
     nflverse.ts           # fetch, parse, and cache the nflverse CSV
