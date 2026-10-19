@@ -4,7 +4,7 @@
 
 Numbers For Looking (NFL) is a simple, visual-first tool for comparing 2026 NFL player stats week over week. No AI, no projections, no fantasy points, just real game stats and clean charts.
 
-- Pick a position (QB, RB, WR, TE)
+- Pick a position (QB, RB, WR, TE, K)
 - Add up to 4 players
 - Check the stats you care about
 - Read the week-by-week trend charts and the comparison table
@@ -33,7 +33,7 @@ https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_p
 ```
 
 - nflverse updates the file during the season, usually within a day of games finishing. The footer shows which week the data runs through.
-- The server downloads the file at most once every 6 hours, keeps only regular-season QB/RB/WR/TE rows, and caches the parsed result in memory. API responses also send CDN cache headers.
+- The server downloads the file at most once every 6 hours, keeps only regular-season QB/RB/WR/TE/K rows, and caches the parsed result in memory. API responses also send CDN cache headers.
 - If a refresh fails, the app keeps serving the last good copy and says so in the footer. It never falls back to made-up data.
 - **Check for new stats** (top right) re-downloads right away instead of waiting for the 6-hour refresh. It reports whether a new week arrived, numbers were updated, or nothing changed. It also uses the nflverse schedule to say when the next week kicks off, or that games have been played and stats are pending. Repeat clicks within 3 minutes reuse the last download.
 

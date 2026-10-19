@@ -48,6 +48,38 @@ const M = {
   },
   airYds: { key: "airYds", label: "Air Yards", short: "Air Yds", value: field("receiving_air_yards"), format: int },
   yac: { key: "yac", label: "Yards After Catch", short: "YAC", value: field("receiving_yards_after_catch"), format: int },
+  fgMade: { key: "fgMade", label: "FG Made", short: "FGM", value: field("fg_made"), format: int },
+  fgAtt: { key: "fgAtt", label: "FG Attempts", short: "FGA", value: field("fg_att"), format: int },
+  // Percentages and "long" only mean something when there was an attempt / make: a gap, not 0.
+  fgPct: {
+    key: "fgPct",
+    label: "FG %",
+    short: "FG %",
+    value: (w) => (w.fg_att ? ((w.fg_made ?? 0) / w.fg_att) * 100 : null),
+    format: pct,
+  },
+  fgLong: {
+    key: "fgLong",
+    label: "Long FG",
+    short: "Long",
+    value: (w) => (w.fg_made ? w.fg_long : null),
+    format: int,
+  },
+  fg50: {
+    key: "fg50",
+    label: "FG 50+ Made",
+    short: "50+",
+    value: (w) => (w.fg_made_50_59 === null && w.fg_made_60_ === null ? null : (w.fg_made_50_59 ?? 0) + (w.fg_made_60_ ?? 0)),
+    format: int,
+  },
+  patMade: { key: "patMade", label: "PAT Made", short: "XPM", value: field("pat_made"), format: int },
+  patPct: {
+    key: "patPct",
+    label: "PAT %",
+    short: "XP %",
+    value: (w) => (w.pat_att ? ((w.pat_made ?? 0) / w.pat_att) * 100 : null),
+    format: pct,
+  },
 } satisfies Record<string, Metric>;
 
 const checked = (m: Metric): Metric => ({ ...m, defaultChecked: true });
@@ -59,6 +91,7 @@ export const METRICS_BY_POSITION: Record<Position, Metric[]> = {
   RB: [checked(M.rushYds), checked(M.carries), M.rushTd, M.targets, M.receptions, checked(M.recYds), M.yac],
   WR: RECEIVER,
   TE: RECEIVER,
+  K: [checked(M.fgMade), checked(M.fgPct), checked(M.fgLong), M.fgAtt, M.fg50, M.patMade, M.patPct],
 };
 
 export function defaultMetricKeys(position: Position): string[] {

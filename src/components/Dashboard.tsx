@@ -373,7 +373,8 @@ export default function Dashboard() {
           <>
             <p className="-mb-2 text-xs text-muted">
               {TEAMS[team]?.name} · {teamShown.length} {position}s
-              {hiddenCount > 0 && ` (hiding ${hiddenCount} with fewer than ${CONTRIBUTOR_MIN_TOUCHES} touches)`} · busiest
+              {hiddenCount > 0 &&
+                ` (hiding ${hiddenCount} with fewer than ${CONTRIBUTOR_MIN_TOUCHES} ${position === "K" ? "kicks" : "touches"})`} · busiest
               first · hover a name or line to focus
             </p>
             <TrendCharts

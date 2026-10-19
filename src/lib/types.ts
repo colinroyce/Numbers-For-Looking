@@ -1,4 +1,4 @@
-export const POSITIONS = ["QB", "RB", "WR", "TE"] as const;
+export const POSITIONS = ["QB", "RB", "WR", "TE", "K"] as const;
 export type Position = (typeof POSITIONS)[number];
 
 export function isPosition(value: unknown): value is Position {
@@ -22,6 +22,13 @@ export const STAT_FIELDS = [
   "receiving_air_yards",
   "receiving_yards_after_catch",
   "target_share",
+  "fg_made",
+  "fg_att",
+  "fg_long",
+  "fg_made_50_59",
+  "fg_made_60_",
+  "pat_made",
+  "pat_att",
 ] as const;
 export type StatField = (typeof STAT_FIELDS)[number];
 
@@ -85,7 +92,7 @@ export type TeamPlayer = PlayerSummary & {
   weeks: WeeklyStat[];
   teamWeeks: number[];
   upcomingWeeks: number[];
-  /** Targets + carries + pass attempts on the season. */
+  /** Targets + carries + pass attempts (kickers: FG + PAT attempts) on the season. */
   touches: number;
 };
 
