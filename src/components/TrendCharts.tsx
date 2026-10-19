@@ -210,7 +210,7 @@ const MetricChart = memo(function MetricChart({
               domain={y.domain}
               ticks={y.ticks}
               interval={0}
-              tickFormatter={(v: number) => metric.format(v)}
+              tickFormatter={(v: number) => (metric.tick ?? metric.format)(v)}
             />
             <Tooltip
               cursor={{ stroke: "var(--ink-2)", strokeWidth: 1, strokeOpacity: 0.4 }}

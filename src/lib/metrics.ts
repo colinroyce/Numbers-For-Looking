@@ -7,11 +7,14 @@ export type Metric = {
   short: string;
   value: (w: WeeklyStat) => number | null;
   format: (v: number) => string;
+  /** Y-axis tick label; ticks are whole numbers, so percentages drop the decimal. */
+  tick?: (v: number) => string;
   defaultChecked?: boolean;
 };
 
 const int = (v: number) => Math.round(v).toLocaleString("en-US");
 const pct = (v: number) => `${v.toFixed(1)}%`;
+const pctTick = (v: number) => `${Math.round(v)}%`;
 
 const field =
   (name: keyof WeeklyStat) =>
@@ -30,6 +33,7 @@ const M = {
     short: "Comp %",
     value: (w) => (w.attempts ? ((w.completions ?? 0) / w.attempts) * 100 : null),
     format: pct,
+    tick: pctTick,
   },
   attempts: { key: "attempts", label: "Pass Attempts", short: "Att", value: field("attempts"), format: int },
   rushYds: { key: "rushYds", label: "Rushing Yards", short: "Rush Yds", value: field("rushing_yards"), format: int },
@@ -45,6 +49,7 @@ const M = {
     short: "Tgt %",
     value: (w) => (w.target_share === null ? null : w.target_share * 100),
     format: pct,
+    tick: pctTick,
   },
   airYds: { key: "airYds", label: "Air Yards", short: "Air Yds", value: field("receiving_air_yards"), format: int },
   yac: { key: "yac", label: "Yards After Catch", short: "YAC", value: field("receiving_yards_after_catch"), format: int },
@@ -57,6 +62,7 @@ const M = {
     short: "FG %",
     value: (w) => (w.fg_att ? ((w.fg_made ?? 0) / w.fg_att) * 100 : null),
     format: pct,
+    tick: pctTick,
   },
   fgLong: {
     key: "fgLong",
@@ -79,6 +85,7 @@ const M = {
     short: "XP %",
     value: (w) => (w.pat_att ? ((w.pat_made ?? 0) / w.pat_att) * 100 : null),
     format: pct,
+    tick: pctTick,
   },
 } satisfies Record<string, Metric>;
 
