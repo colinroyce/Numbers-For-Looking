@@ -6,7 +6,7 @@ import { dataUnavailable } from "@/lib/api-errors";
 export async function GET(request: NextRequest) {
   const position = request.nextUrl.searchParams.get("position");
   if (!isPosition(position)) {
-    return Response.json({ error: "position must be QB, RB, WR or TE" }, { status: 400 });
+    return Response.json({ error: "position must be QB, RB, WR, TE or K" }, { status: 400 });
   }
   try {
     const { data, headers } = await getDatasetFor(request);

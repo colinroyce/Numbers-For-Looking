@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
+import { MAX_PLAYERS } from "@/lib/colors";
 import { getDatasetFor } from "@/lib/nflverse";
 import type { StatsResponse } from "@/lib/types";
 import { dataUnavailable } from "@/lib/api-errors";
-
-const MAX_PLAYERS = 3;
+import { upcomingWeeks } from "@/lib/schedule";
 
 export async function GET(request: NextRequest) {
   const ids = (request.nextUrl.searchParams.get("ids") ?? "")
@@ -19,10 +19,12 @@ export async function GET(request: NextRequest) {
     for (const id of ids) {
       const player = data.players.find((p) => p.id === id);
       if (!player) continue;
+      const teamWeeks = data.teamWeeks[player.team] ?? [];
       players.push({
         ...player,
         weeks: data.stats[id] ?? [],
-        teamWeeks: data.teamWeeks[player.team] ?? [],
+        teamWeeks,
+        upcomingWeeks: await upcomingWeeks(player.team, teamWeeks, data.latestWeek),
       });
     }
     const body: StatsResponse = { latestWeek: data.latestWeek, players };

@@ -6,7 +6,7 @@ import { SEASON } from "./nflverse";
 const SCHEDULE_URL = "https://github.com/nflverse/nfldata/raw/master/data/games.csv";
 const TTL_MS = 12 * 60 * 60 * 1000;
 
-type Game = { week: number; gameday: string; played: boolean };
+type Game = { week: number; gameday: string; played: boolean; teams: [string, string] };
 
 let cached: { games: Game[]; expiresAt: number } | null = null;
 
@@ -17,7 +17,12 @@ async function getSchedule(): Promise<Game[]> {
   const { data } = Papa.parse<Record<string, string>>(await res.text(), { header: true, skipEmptyLines: true });
   const games = data
     .filter((g) => g.season === String(SEASON) && g.game_type === "REG")
-    .map((g) => ({ week: Number(g.week), gameday: g.gameday, played: g.result !== "" && g.result !== "NA" }));
+    .map((g) => ({
+      week: Number(g.week),
+      gameday: g.gameday,
+      played: g.result !== "" && g.result !== "NA",
+      teams: [g.away_team, g.home_team] as [string, string],
+    }));
   cached = { games, expiresAt: Date.now() + TTL_MS };
   return games;
 }
@@ -71,4 +76,22 @@ export async function gamesInWeek(week: number): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Weeks (up to `latestWeek`) in which `team` has a game scheduled but no stats posted
+ * yet, so the UI can say "not played yet" instead of "BYE" in a partly played week.
+ * Empty if the schedule can't be loaded (the UI then falls back to "BYE").
+ */
+export async function upcomingWeeks(team: string, teamWeeks: number[], latestWeek: number): Promise<number[]> {
+  let games: Game[];
+  try {
+    games = await getSchedule();
+  } catch {
+    return [];
+  }
+  const scheduled = new Set(games.filter((g) => g.teams.includes(team)).map((g) => g.week));
+  const weeks: number[] = [];
+  for (let w = 1; w <= latestWeek; w++) if (scheduled.has(w) && !teamWeeks.includes(w)) weeks.push(w);
+  return weeks;
 }

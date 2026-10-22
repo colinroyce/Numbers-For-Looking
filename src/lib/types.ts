@@ -1,4 +1,4 @@
-export const POSITIONS = ["QB", "RB", "WR", "TE"] as const;
+export const POSITIONS = ["QB", "RB", "WR", "TE", "K"] as const;
 export type Position = (typeof POSITIONS)[number];
 
 export function isPosition(value: unknown): value is Position {
@@ -22,6 +22,13 @@ export const STAT_FIELDS = [
   "receiving_air_yards",
   "receiving_yards_after_catch",
   "target_share",
+  "fg_made",
+  "fg_att",
+  "fg_long",
+  "fg_made_50_59",
+  "fg_made_60_",
+  "pat_made",
+  "pat_att",
 ] as const;
 export type StatField = (typeof STAT_FIELDS)[number];
 
@@ -61,7 +68,12 @@ export type PlayersResponse = { players: PlayerSummary[] };
 
 export type StatsResponse = {
   latestWeek: number;
-  players: (PlayerSummary & { weeks: WeeklyStat[]; teamWeeks: number[] })[];
+  players: (PlayerSummary & {
+    weeks: WeeklyStat[];
+    teamWeeks: number[];
+    /** Weeks where the team's game hasn't been played (or posted) yet: not a bye. */
+    upcomingWeeks: number[];
+  })[];
 };
 
 export type FieldPlayer = Pick<PlayerSummary, "id" | "name" | "team"> & { weeks: WeeklyStat[] };
@@ -74,3 +86,14 @@ export type RefreshResponse = {
   message: string;
   meta: MetaResponse;
 };
+
+/** A player's season on one team, for team view, with usage for sorting and filtering. */
+export type TeamPlayer = PlayerSummary & {
+  weeks: WeeklyStat[];
+  teamWeeks: number[];
+  upcomingWeeks: number[];
+  /** Targets + carries + pass attempts (kickers: FG + PAT attempts) on the season. */
+  touches: number;
+};
+
+export type TeamResponse = { team: string; players: TeamPlayer[] };

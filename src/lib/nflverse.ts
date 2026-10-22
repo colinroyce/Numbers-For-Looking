@@ -160,14 +160,20 @@ export async function getDatasetFor(request: NextRequest) {
   return { ...result, headers };
 }
 
-/** Cache-Control for API responses: lets a CDN (e.g. Vercel) share results between instances. */
+/**
+ * Browsers always re-check (`Cache-Control`); only the CDN keeps and shares copies
+ * (`CDN-Cache-Control`, honored by Vercel). Otherwise a browser's own
+ * stale-while-revalidate can show a response from before a deploy.
+ */
 export const CACHE_HEADERS = {
-  "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=21600",
+  "Cache-Control": "public, max-age=0, must-revalidate",
+  "CDN-Cache-Control": "public, s-maxage=3600, stale-while-revalidate=21600",
 };
 
 export const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
 /** /api/meta tells clients the current version, so it must not be cached for long. */
 export const META_CACHE_HEADERS = {
-  "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+  "Cache-Control": "public, max-age=0, must-revalidate",
+  "CDN-Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
 };
